@@ -12,3 +12,7 @@ Die Lösung wurde so umgesetzt, dass sie:
 - direkt über Browser- bzw. DOM-Manipulation arbeitet
 - leicht über die Browser-Konsole testbar ist
 - unabhängig von der ursprünglichen App-Implementierung eingesetzt werden kann
+
+# link:
+
+https://metaflow-x-casestudy.lovable.app/?name=Name
