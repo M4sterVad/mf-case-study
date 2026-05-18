@@ -1,0 +1,205 @@
+(function () {
+	"use strict";
+
+	// 1. Alle Übersetzungen (basierend auf dem Crawler-Output)
+	// Alles zwingend in Kleinschreibung für das Case-Insensitive Matching!
+	const textTranslations = {
+		// --- Navigation & Allgemein ---
+		dashboard: "Übersicht",
+		subscriptions: "Abonnements",
+		subscription: "Abonnement",
+		"new subscription": "Neues Abonnement",
+		active: "Aktiv",
+		weeks: "Wochen",
+		cancel: "Abbrechen",
+
+		// --- Status & Lieferungen ---
+		"started on": "Gestartet am",
+		"skipped until": "Übersprungen bis",
+		skipped: "Übersprungen",
+		"paused until": "Pausiert bis",
+		"paused subscriptions": "Pausierte Abonnements",
+		paused: "Pausiert",
+		"next delivery:": "Nächste Lieferung:",
+		"next delivery": "Nächste Lieferung",
+
+		// --- Adress- & Kontoverwaltung ---
+		"delivery address": "Lieferadresse",
+		"update your delivery address for subscriptions":
+			"Aktualisiere deine Lieferadresse für Abonnements",
+		"street address": "Straße und Hausnummer",
+		city: "Stadt",
+		"postal code": "Postleitzahl",
+		country: "Land",
+		germany: "Deutschland",
+		"edit address": "Adresse bearbeiten",
+		"save address": "Adresse speichern",
+		"address updated": "Adresse aktualisiert",
+
+		// --- Auswahl & Preise ---
+		"you have selected": "Du hast",
+		for: "für",
+		of: "von",
+		selected: "Ausgewählte",
+		flavors: "Geschmacksrichtungen",
+		"billed every": "Abgerechnet alle",
+		"subscription resumed": "Abonnement fortgesetzt",
+		"subscription preis:": "Abonnement-Preis:",
+
+		// --- Wochentage ---
+		monday: "Montag",
+		tuesday: "Dienstag",
+		wednesday: "Mittwoch",
+		thursday: "Donnerstag",
+		friday: "Freitag",
+		saturday: "Samstag",
+		sunday: "Sonntag",
+	};
+
+	// 2. Erweitertes Monats-Wörterbuch (für Regex-Datum)
+	const monthMap = {
+		jan: "Jan.",
+		january: "Januar",
+		feb: "Feb.",
+		february: "Februar",
+		mar: "März",
+		march: "März",
+		apr: "Apr.",
+		april: "April",
+		may: "Mai",
+		jun: "Juni",
+		june: "Juni",
+		jul: "Juli",
+		july: "Juli",
+		aug: "Aug.",
+		august: "August",
+		sep: "Sep.",
+		september: "September",
+		oct: "Okt.",
+		october: "Oktober",
+		nov: "Nov.",
+		november: "November",
+		dec: "Dez.",
+		december: "Dezember",
+	};
+
+	function processTextNode(node) {
+		let text = node.nodeValue;
+		let originalText = text;
+
+		// --- A. WÄHRUNGSFORMAT (React Split-Node Fix) ---
+		if (text.trim() === "€") {
+			let nextNode = node.nextSibling;
+			while (
+				nextNode &&
+				nextNode.nodeType === 3 &&
+				nextNode.nodeValue.trim() === ""
+			) {
+				nextNode = nextNode.nextSibling;
+			}
+			if (nextNode && nextNode.nodeType === 3) {
+				const nextText = nextNode.nodeValue;
+				const numberRegex = /^\s*(\d+)\.(\d{2})\s*$/;
+				if (numberRegex.test(nextText)) {
+					node.nodeValue = text.replace("€", "");
+					nextNode.nodeValue = nextText.replace(numberRegex, "$1,$2 €");
+					return;
+				}
+			}
+		}
+		// Fallback für zusammenhängende Nodes
+		text = text.replace(/€\s*(\d+)\.(\d{2})/g, "$1,$2 €");
+
+		// --- B. DATUMSFORMAT ---
+		// Format: "May 15, 2026"
+		text = text.replace(
+			/\b([a-zA-Z]{3,})\s+(\d{1,2}),\s+(\d{4})\b/g,
+			(match, monthEng, dayNum, year) => {
+				const monthDe = monthMap[monthEng.toLowerCase()] || monthEng;
+				return `${dayNum}. ${monthDe} ${year}`;
+			},
+		);
+
+		// Format: "29 May"
+		text = text.replace(
+			/\b(\d{1,2})\s+([a-zA-Z]{3,})\b/g,
+			(match, dayNum, monthEng) => {
+				const monthKey = monthEng.toLowerCase();
+				if (monthMap[monthKey]) {
+					return `${dayNum}. ${monthMap[monthKey]}`;
+				}
+				return match;
+			},
+		);
+
+		// --- C. DYNAMISCHE SÄTZE ---
+		text = text.replace(
+			/Selected flavors:\s*\(\s*(\d+)\s+flavors for\s+(\d+)\s+weeks\s*\)/gi,
+			"Ausgewählte Sorten: ($1 Sorten für $2 Wochen)",
+		);
+
+		// --- D. TEXTÜBERSETZUNGEN (Dynamisch & Längen-sortiert) ---
+		// Wir sortieren nach Länge, damit "paused subscriptions" VOR "paused" ersetzt wird!
+		const sortedKeys = Object.keys(textTranslations).sort(
+			(a, b) => b.length - a.length,
+		);
+
+		for (const english of sortedKeys) {
+			// \b sichert, dass wir keine Wortteile übersetzen, 'gi' ignoriert Groß-/Kleinschreibung
+			const regex = new RegExp(`\\b${english}\\b`, "gi");
+			text = text.replace(regex, (match) => {
+				// Wir übernehmen die Übersetzung aus dem Dictionary
+				return textTranslations[english];
+			});
+		}
+
+		// --- DOM AKTUALISIEREN ---
+		if (text !== originalText) {
+			node.nodeValue = text;
+		}
+	}
+
+	// 3. DOM Durchlauf
+	function walkDOM(node) {
+		if (node.nodeType === 3) {
+			if (
+				node.parentNode &&
+				(node.parentNode.tagName === "SCRIPT" ||
+					node.parentNode.tagName === "STYLE")
+			) {
+				return;
+			}
+			if (node.nodeValue.trim() !== "") {
+				processTextNode(node);
+			}
+		} else {
+			for (let i = 0; i < node.childNodes.length; i++) {
+				walkDOM(node.childNodes[i]);
+			}
+		}
+	}
+
+	// 4. Start
+	walkDOM(document.body);
+
+	// 5. React-sicherer Observer
+	const observer = new MutationObserver((mutations) => {
+		mutations.forEach((mutation) => {
+			if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+				mutation.addedNodes.forEach((newNode) => {
+					walkDOM(newNode);
+				});
+			} else if (mutation.type === "characterData") {
+				processTextNode(mutation.target);
+			}
+		});
+	});
+
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true,
+		characterData: true,
+	});
+
+	console.log("StayAI React-Optimized Translation Script geladen.");
+})();
