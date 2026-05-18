@@ -1,9 +1,15 @@
 (function () {
 	"use strict";
 
-	// 1. Alle Übersetzungen (basierend auf dem Crawler-Output)
-	// Alles zwingend in Kleinschreibung für das Case-Insensitive Matching!
+	// 1. Alle Übersetzungen (inklusive der neuen Modal-Texte)
 	const textTranslations = {
+		// --- Modal & Pop-up Texte ---
+		"pause subscription": "Abonnement pausieren",
+		"select a date until when you want to pause your subscription.":
+			"Wähle ein Datum, bis zu dem du dein Abonnement pausieren möchtest.",
+		"pause until": "Pausieren bis",
+		close: "Schließen",
+
 		// --- Navigation & Allgemein ---
 		dashboard: "Übersicht",
 		subscriptions: "Abonnements",
@@ -54,9 +60,30 @@
 		friday: "Freitag",
 		saturday: "Samstag",
 		sunday: "Sonntag",
+		Su: "So",
+		Mo: "Mo",
+		Tu: "Di",
+		We: "Mi",
+		Th: "Do",
+		Fr: "Fr",
+		Sa: "Sa",
+
+		// --- Monate ---
+		January: "Januar",
+		February: "Februar",
+		March: "März",
+		April: "April",
+		May: "Mai",
+		June: "Juni",
+		July: "Juli",
+		August: "August",
+		September: "September",
+		October: "Oktober",
+		November: "November",
+		December: "Dezember",
 	};
 
-	// 2. Erweitertes Monats-Wörterbuch (für Regex-Datum)
+	// 2. Erweitertes Monats-Wörterbuch
 	const monthMap = {
 		jan: "Jan.",
 		january: "Januar",
@@ -107,20 +134,20 @@
 				}
 			}
 		}
-		// Fallback für zusammenhängende Nodes
 		text = text.replace(/€\s*(\d+)\.(\d{2})/g, "$1,$2 €");
 
 		// --- B. DATUMSFORMAT ---
-		// Format: "May 15, 2026"
+		// Format 1: "May 15, 2026" ODER "June 17th, 2026"
+		// (?:st|nd|rd|th)? ignoriert die englischen Endungen beim Extrahieren der Zahlen
 		text = text.replace(
-			/\b([a-zA-Z]{3,})\s+(\d{1,2}),\s+(\d{4})\b/g,
+			/\b([a-zA-Z]{3,})\s+(\d{1,2})(?:st|nd|rd|th)?,\s+(\d{4})\b/g,
 			(match, monthEng, dayNum, year) => {
 				const monthDe = monthMap[monthEng.toLowerCase()] || monthEng;
 				return `${dayNum}. ${monthDe} ${year}`;
 			},
 		);
 
-		// Format: "29 May"
+		// Format 2: "29 May"
 		text = text.replace(
 			/\b(\d{1,2})\s+([a-zA-Z]{3,})\b/g,
 			(match, dayNum, monthEng) => {
@@ -138,19 +165,27 @@
 			"Ausgewählte Sorten: ($1 Sorten für $2 Wochen)",
 		);
 
-		// --- D. TEXTÜBERSETZUNGEN (Dynamisch & Längen-sortiert) ---
-		// Wir sortieren nach Länge, damit "paused subscriptions" VOR "paused" ersetzt wird!
+		// --- D. TEXTÜBERSETZUNGEN (Längen-sortiert) ---
 		const sortedKeys = Object.keys(textTranslations).sort(
 			(a, b) => b.length - a.length,
 		);
 
 		for (const english of sortedKeys) {
-			// \b sichert, dass wir keine Wortteile übersetzen, 'gi' ignoriert Groß-/Kleinschreibung
-			const regex = new RegExp(`\\b${english}\\b`, "gi");
-			text = text.replace(regex, (match) => {
-				// Wir übernehmen die Übersetzung aus dem Dictionary
-				return textTranslations[english];
-			});
+			// Sonderzeichen (wie den Punkt) für Regex maskieren
+			const escapedEnglish = english.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+			// Intelligente Boundaries: \b nur setzen, wenn es Sinn macht
+			// Testet, ob der Key mit einem Buchstaben/Zahl anfängt (\w)
+			const startBoundary = /^\w/.test(english) ? "\\b" : "";
+			// Testet, ob der Key mit einem Buchstaben/Zahl endet (\w)
+			const endBoundary = /\w$/.test(english) ? "\\b" : "";
+
+			const regex = new RegExp(
+				`${startBoundary}${escapedEnglish}${endBoundary}`,
+				"gi",
+			);
+
+			text = text.replace(regex, textTranslations[english]);
 		}
 
 		// --- DOM AKTUALISIEREN ---
@@ -182,7 +217,7 @@
 	// 4. Start
 	walkDOM(document.body);
 
-	// 5. React-sicherer Observer
+	// 5. Observer
 	const observer = new MutationObserver((mutations) => {
 		mutations.forEach((mutation) => {
 			if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
