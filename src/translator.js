@@ -18,6 +18,9 @@
 		active: "Aktiv",
 		weeks: "Wochen",
 		cancel: "Abbrechen",
+		"subscription canceled": "Abonnement storniert",
+		updated: "aktualisiert",
+		created: "erstellt",
 
 		// --- Status & Lieferungen ---
 		"started on": "Gestartet am",
@@ -114,7 +117,8 @@
 		let text = node.nodeValue;
 		let originalText = text;
 
-		// --- A. WÄHRUNGSFORMAT (React Split-Node Fix) ---
+		// --- A. WÄHRUNGSFORMAT (React Split-Node & Re-Render Fix) ---
+		// Fall 1: Wir sehen das Euro-Zeichen (Initiales Laden oder kompletter Re-Render)
 		if (text.trim() === "€") {
 			let nextNode = node.nextSibling;
 			while (
@@ -128,12 +132,30 @@
 				const nextText = nextNode.nodeValue;
 				const numberRegex = /^\s*(\d+)\.(\d{2})\s*$/;
 				if (numberRegex.test(nextText)) {
+					// WICHTIG: Wir markieren das Eltern-Element als "Preis-Container"
+					if (node.parentNode) {
+						node.parentNode.setAttribute("data-is-price", "true");
+					}
 					node.nodeValue = text.replace("€", "");
 					nextNode.nodeValue = nextText.replace(numberRegex, "$1,$2 €");
 					return;
 				}
 			}
 		}
+
+		// Fall 2: React hat NUR die Zahl geupdatet (z.B. bei Optionswechsel)
+		// Wir prüfen, ob es eine isolierte Zahl ist UND ob das Elternteil unseren Stempel hat
+		const standaloneNumberRegex = /^\s*(\d+)\.(\d{2})\s*$/;
+		if (standaloneNumberRegex.test(text)) {
+			if (
+				node.parentNode &&
+				node.parentNode.getAttribute("data-is-price") === "true"
+			) {
+				text = text.replace(standaloneNumberRegex, "$1,$2 €");
+			}
+		}
+
+		// Fall 3: Fallback für zusammenhängende Nodes (z.B. "€89.92" in einem String)
 		text = text.replace(/€\s*(\d+)\.(\d{2})/g, "$1,$2 €");
 
 		// --- B. DATUMSFORMAT ---
