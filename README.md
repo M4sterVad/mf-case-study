@@ -13,6 +13,6 @@ Die Lösung wurde so umgesetzt, dass sie:
 - leicht über die Browser-Konsole testbar ist
 - unabhängig von der ursprünglichen App-Implementierung eingesetzt werden kann
 
-# link:
+## link:
 
 https://metaflow-x-casestudy.lovable.app/?name=Name
