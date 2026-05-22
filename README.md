@@ -16,3 +16,14 @@ Die Lösung wurde so umgesetzt, dass sie:
 ## link:
 
 https://metaflow-x-casestudy.lovable.app/?name=Name
+
+## Übersicht des AI Chatverlaufs:
+- Überblick verschaffen und ein Script generieren
+- Die Ergebnisse der KI evaluieren – Fokus auf case-insensitive Übersetzungen, Datums- und Währungsformate
+- Da die Ergebnisse weiterhin nicht korrekt waren, wurde der HTML-Body zur Verbesserung von Kontext und Verständnis bereitgestellt
+- Das Split-Node-Problem identifiziert und behoben
+- Einen Text-Crawler entwickelt, um alle zu übersetzenden Nodes zu finden
+- translator.js weiter angepasst – u. a. für „th“ in „17th June“ sowie Regex-Optimierungen für intelligente Word-Boundaries
+- Eine weitere Evaluationsrunde durchgeführt
+- Preis-Marker für dynamische Preisänderungen ergänzt
+
